@@ -28,11 +28,18 @@ namespace Snake
         List<PositionedEntity> snake;
         // яблоко
         Apple apple;
+        // стартовый телепорт
+        TeleportA teleportA;
+        // конечный телепорт
+        TeleportB teleportB;
         //количество очков
         int score;
         //таймер по которому 
         DispatcherTimer moveTimer;
-        
+
+        bool teleportExist = false;
+        bool teleportEnter = false;
+
         //конструктор формы, выполняется при запуске программы
         public MainWindow()
         {
@@ -62,9 +69,19 @@ namespace Snake
             //обновляем положение яблока
             Canvas.SetTop(apple.image, apple.y);
             Canvas.SetLeft(apple.image, apple.x);
-            
+
+            if(teleportExist)
+            {
+                //обновляем положение 
+                Canvas.SetTop(teleportA.image, teleportA.y);
+                Canvas.SetLeft(teleportA.image, teleportA.x);
+
+                Canvas.SetTop(teleportB.image, teleportB.y);
+                Canvas.SetLeft(teleportB.image, teleportB.x);
+            }
+
             //обновляем количество очков
-            lblScore.Content = String.Format("{0}000", score);
+            lblScore.Content = String.Format("{0000}", score);
         }
 
         //обработчик тика таймера. Все движение происходит здесь
@@ -102,7 +119,7 @@ namespace Snake
             if (head.x == apple.x && head.y == apple.y)
             {
                 //увеличиваем счет
-                score++;
+                score = score + 1000;
                 //двигаем яблоко на новое место
                 apple.move();
                 // добавляем новый сегмент к змее
@@ -110,9 +127,30 @@ namespace Snake
                 canvas1.Children.Add(part.image);
                 snake.Add(part);
             }
+
+            //проверяем, что голова змеи попала на телепорт
+            if (teleportExist && !teleportEnter && head.x == teleportA.x && head.y == teleportA.y)
+            {
+                //телепортация
+                head.x = teleportB.x;
+                head.y = teleportB.y;
+
+                teleportEnter = true;
+            }
+
+            if (teleportExist && !teleportEnter && head.x == teleportB.x && head.y == teleportB.y)
+            {
+                //телепортация
+                head.x = teleportA.x;
+                head.y = teleportA.y;
+
+                teleportEnter = true;
+            }
+
             //перерисовываем экран
             UpdateField();
         }
+
 
         // Обработчик нажатия на кнопку клавиатуры
         private void Window_KeyDown(object sender, KeyEventArgs e)
@@ -121,15 +159,19 @@ namespace Snake
             {
                 case Key.Up:
                     head.direction = Head.Direction.UP;
+                    if (teleportEnter) { head.y -= 40; teleportEnter = false; }                    
                     break;
                 case Key.Down:
                     head.direction = Head.Direction.DOWN;
+                    if (teleportEnter) { head.y += 40; teleportEnter = false; }
                     break;
                 case Key.Left:
                     head.direction = Head.Direction.LEFT;
+                    if (teleportEnter) { head.x -= 40; teleportEnter = false; }
                     break;
                 case Key.Right:
                     head.direction = Head.Direction.RIGHT;
+                    if (teleportEnter) { head.x += 40; teleportEnter = false; }
                     break;
             }
         }
@@ -161,7 +203,32 @@ namespace Snake
             UpdateField();
 
         }
-        
+
+        // Обработчик нажатия кнопки "Teleport"
+        private void button2_Click(object sender, RoutedEventArgs e)
+        {
+            if (score >= 500)
+            {
+                if (teleportExist)
+                {
+                    canvas1.Children.Remove(teleportA.image);
+                    canvas1.Children.Remove(teleportB.image);
+                }
+
+                score = score - 500;
+                // создаем новую пару телепортов и добавлем их
+                teleportA = new TeleportA(snake);
+                canvas1.Children.Add(teleportA.image);
+                teleportB = new TeleportB(snake);
+                canvas1.Children.Add(teleportB.image);
+
+                teleportExist = true;
+
+                UpdateField();
+            }
+            
+        }
+
         public class Entity
         {
             protected int m_width;
@@ -259,6 +326,74 @@ namespace Snake
             }
         }
 
+        static int GetRandom()
+        {
+            Random rand = new Random();
+            
+            int rnd = rand.Next(13) * 40 + 40;
+
+            return rnd;
+
+        }
+
+        public class TeleportA : PositionedEntity
+        {
+            List<PositionedEntity> m_snake;
+            public TeleportA(List<PositionedEntity> s)
+                : base(0, 0, 40, 40, "pack://application:,,,/Resources/teleport.png")
+            {
+                m_snake = s;
+                Random rand = new Random();
+                do
+                {
+                    x = GetRandom();
+                    y = GetRandom();
+                    bool overlap = false;
+                    foreach (var p in m_snake)
+                    {
+                        if (p.x == x && p.y == y)
+                        {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                    if (!overlap)
+                        break;
+                } while (true);
+                
+            }
+
+        }
+
+        public class TeleportB : PositionedEntity
+        {
+            List<PositionedEntity> m_snake;
+            public TeleportB (List<PositionedEntity> s)
+                : base(0, 0, 40, 40, "pack://application:,,,/Resources/teleport.png")
+            {
+                m_snake = s;
+                Random rand = new Random();
+                do
+                {
+                    x = rand.Next(13) * 40 + 40;
+                    y = rand.Next(13) * 40 + 40;
+                    bool overlap = false;
+                    foreach (var p in m_snake)
+                    {
+                        if (p.x == x && p.y == y)
+                        {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                    if (!overlap)
+                        break;
+                } while (true);
+
+            }
+
+        }
+
         public class Head : PositionedEntity
         {
             public enum Direction
@@ -319,5 +454,7 @@ namespace Snake
                 y = m_next.y;
             }
         }
+
+        
     }
 }
